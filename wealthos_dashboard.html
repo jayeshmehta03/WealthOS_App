@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WealthOS</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+}
+
+/* GOALS GRID */
+.goals-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+.goal-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);padding:18px;position:relative;transition:border-color 0.15s}
+.goal-card:hover{border-color:var(--border2)}
+.goal-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px}
+.goal-card-title{font-size:14px;font-weight:600;color:var(--text)}
+.goal-card-year{font-family:var(--font-mono);font-size:11px;color:var(--text3);margin-top:2px}
+.goal-card-actions{display:flex;gap:4px}
+.goal-card-actions button{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:var(--radius);font-size:14px;transition:all 0.12s}
+.goal-card-actions button:hover{background:var(--bg4);color:var(--text)}
+.goal-card-amounts{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.goal-card-current{font-family:var(--font-mono);font-size:16px;font-weight:500;color:var(--text)}
+.goal-card-target{font-family:var(--font-mono);font-size:12px;color:var(--text3)}
+.goal-card-bar{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-bottom:8px}
+.goal-card-bar-fill{height:100%;border-radius:3px;transition:width 0.6s cubic-bezier(0.4,0,0.2,1)}
+.goal-card-footer{display:flex;justify-content:space-between;font-size:11px;color:var(--text3);font-family:var(--font-mono)}
+.goal-card-sip{font-size:11px;color:var(--text2);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
+.goal-card-priority{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:500;letter-spacing:0.04em;text-transform:uppercase}
+.priority-high{background:var(--red-bg);color:var(--red)}
+.priority-medium{background:var(--amber-bg);color:var(--amber)}
+.priority-low{background:var(--teal-bg);color:var(--teal)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+.modal-overlay.active{display:flex}
+.modal-box{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-xl);width:100%;max-width:480px;max-height:90vh;overflow-y:auto;animation:fadeIn 0.2s ease}
+.modal-header{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 0}
+.modal-title{font-family:var(--font-display);font-size:15px;font-weight:600}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:4px;border-radius:var(--radius);transition:all 0.12s}
+.modal-close:hover{background:var(--bg4);color:var(--text)}
+.modal-body{padding:18px 20px}
+.modal-footer{padding:0 20px 18px;display:flex;justify-content:flex-end;gap:8px}
+
+/* FORM FIELDS */
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:5px}
+.form-input{width:100%;padding:8px 12px;font-size:13px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:inherit;transition:border-color 0.15s}
+.form-input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(200,249,122,0.1)}
+.form-select{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239c9690' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.form-hint{font-size:10px;color:var(--text3);margin-top:3px}
+
+/* ALLOCATION TABLE */
+.alloc-table{width:100%;border-collapse:collapse;font-size:12px}
+.alloc-table th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--border2)}
+.alloc-table td{padding:8px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+.alloc-table tr:last-child td{border-bottom:none}
+.alloc-table tr:hover td{background:var(--bg3)}
+.alloc-fund-name{font-weight:500;font-size:12px;color:var(--text)}
+.alloc-fund-cat{font-size:10px;color:var(--text3)}
+.alloc-fund-value{font-family:var(--font-mono);font-size:12px;text-align:right}
+.alloc-goal-select{width:100%;padding:5px 8px;font-size:11px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:inherit;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239c9690' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 8px center}
+.alloc-goal-select:focus{outline:none;border-color:var(--accent)}
+.alloc-pct-input{width:60px;padding:4px 8px;font-size:11px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font-mono);text-align:right}
+.alloc-pct-input:focus{outline:none;border-color:var(--accent)}
+.alloc-summary{margin-top:14px;padding:12px 14px;background:var(--bg3);border-radius:var(--radius-lg);border:1px solid var(--border)}
+.alloc-summary-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px}
+.alloc-summary-row .label{color:var(--text2)}
+.alloc-summary-row .value{font-family:var(--font-mono);font-weight:500}
+.alloc-hint{font-size:11px;color:var(--text3);margin-bottom:14px;padding:8px 12px;background:var(--blue-bg);border-radius:var(--radius);border:1px solid rgba(79,156,249,0.15)}
+.alloc-badge{display:inline-block;padding:2px 6px;border-radius:3px;font-size:9px;font-weight:500;text-transform:uppercase;letter-spacing:0.04em}
+
+/* GOAL ALLOCATION TILES */
+.goal-tiles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:14px}
+.goal-tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden;transition:border-color 0.15s}
+.goal-tile:hover{border-color:var(--border2)}
+.goal-tile-header{padding:16px 18px;border-bottom:1px solid var(--border)}
+.goal-tile-title{font-size:14px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.goal-tile-title .dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.goal-tile-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.goal-tile-metric{padding:6px 0}
+.goal-tile-metric-label{font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:2px}
+.goal-tile-metric-value{font-family:var(--font-mono);font-size:12px;font-weight:500;color:var(--text)}
+.goal-tile-metric-value.accent{color:var(--accent)}
+.goal-tile-metric-value.warn{color:var(--amber)}
+.goal-tile-metric-value.teal{color:var(--teal)}
+.goal-tile-bar{margin-top:10px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.goal-tile-bar-fill{height:100%;border-radius:2px;transition:width 0.5s ease}
+.goal-tile-body{padding:0}
+.goal-tile-fund-row{display:flex;align-items:center;padding:9px 18px;border-bottom:1px solid var(--border);font-size:12px;transition:background 0.1s}
+.goal-tile-fund-row:last-child{border-bottom:none}
+.goal-tile-fund-row:hover{background:var(--bg3)}
+.goal-tile-fund-name{flex:1;min-width:0}
+.goal-tile-fund-name .name{font-weight:500;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.goal-tile-fund-name .cat{font-size:10px;color:var(--text3);margin-top:1px}
+.goal-tile-fund-val{font-family:var(--font-mono);font-size:11px;width:80px;text-align:right;color:var(--text2)}
+.goal-tile-fund-pct{font-family:var(--font-mono);font-size:11px;width:55px;text-align:right}
+.goal-tile-fund-ideal{font-family:var(--font-mono);font-size:11px;width:55px;text-align:right;color:var(--text3)}
+.goal-tile-empty{padding:18px;text-align:center;font-size:11px;color:var(--text3)}
+.goal-tile-fund-header{display:flex;align-items:center;padding:8px 18px;border-bottom:1px solid var(--border2);font-size:9px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3)}
+.goal-tile-fund-header span{font-weight:500}
+.goal-tile-fund-header .col-name{flex:1}
+.goal-tile-fund-header .col-val{width:80px;text-align:right}
+.goal-tile-fund-header .col-pct{width:55px;text-align:right}
+.goal-tile-fund-header .col-ideal{width:55px;text-align:right}
+.goal-tile-fund-header .col-drift{width:55px;text-align:right}
+
+/* REBALANCING */
+.rebal-action{display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--border);font-size:12px}
+.rebal-action:last-child{border-bottom:none}
+.rebal-action-icon{width:28px;height:28px;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.rebal-action-icon.buy{background:var(--teal-bg);color:var(--teal)}
+.rebal-action-icon.sell{background:var(--red-bg);color:var(--red)}
+.rebal-action-icon.hold{background:var(--blue-bg);color:var(--blue)}
+.rebal-action-icon.switch{background:var(--amber-bg);color:var(--amber)}
+.rebal-action-text{flex:1}
+.rebal-action-text strong{font-weight:500;display:block;margin-bottom:1px}
+.rebal-action-text span{font-size:11px;color:var(--text3)}
+.rebal-action-amount{font-family:var(--font-mono);font-size:12px;font-weight:500;white-space:nowrap}
+
+:root{
+  --bg:#0d0d0d;--bg2:#161616;--bg3:#1e1e1e;--bg4:#252525;--bg5:#2e2e2e;
+  --text:#f2ede8;--text2:#9c9690;--text3:#5a5550;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.12);
+  --accent:#c8f97a;--accent-dim:#8fb84a;--accent-bg:rgba(200,249,122,0.08);
+  --blue:#4f9cf9;--blue-bg:rgba(79,156,249,0.1);
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.1);
+  --red:#f97373;--red-bg:rgba(249,115,115,0.1);
+  --teal:#52c89c;--teal-bg:rgba(82,200,156,0.1);
+  --purple:#a78bfa;--purple-bg:rgba(167,139,250,0.1);
+  --radius:6px;--radius-lg:10px;--radius-xl:14px;
+  --font-display:'Syne',sans-serif;--font-mono:'DM Mono',monospace;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+}
+
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+
+.layout{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+
+/* SIDEBAR */
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.logo-mark{font-family:var(--font-display);font-size:15px;font-weight:700;letter-spacing:0.08em;color:var(--text);display:flex;align-items:center;gap:8px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.logo-sub{font-size:10px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;margin-top:2px;padding-left:16px}
+
+.nav-section{padding:16px 12px 8px}
+.nav-label{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--text3);padding:0 8px;margin-bottom:4px}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:var(--radius);font-size:13px;color:var(--text2);cursor:pointer;transition:all 0.12s;white-space:nowrap;border:none;background:none;width:100%;text-align:left}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--accent-bg);color:var(--accent);font-weight:500}
+.nav-item i{font-size:15px;flex-shrink:0}
+.nav-item .badge{margin-left:auto;background:var(--red-bg);color:var(--red);font-size:10px;padding:1px 6px;border-radius:10px;font-family:var(--font-mono)}
+
+.sidebar-footer{margin-top:auto;padding:16px;border-top:1px solid var(--border)}
+.health-score-mini{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg3);border-radius:var(--radius-lg);border:1px solid var(--border)}
+.health-label{font-size:11px;color:var(--text3)}
+.health-val{font-family:var(--font-mono);font-size:18px;font-weight:500;color:var(--accent)}
+
+/* MAIN */
+.main{background:var(--bg);overflow-y:auto}
+.topbar{padding:16px 28px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg);position:sticky;top:0;z-index:10}
+.page-title{font-family:var(--font-display);font-size:16px;font-weight:600;letter-spacing:0.02em}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;font-size:12px;border:1px solid var(--border2);border-radius:var(--radius);background:transparent;color:var(--text2);cursor:pointer;transition:all 0.12s;font-family:inherit;letter-spacing:0.02em}
+.btn:hover{background:var(--bg3);color:var(--text);border-color:rgba(255,255,255,0.2)}
+.btn-accent{background:var(--accent);color:#0d0d0d;border-color:var(--accent);font-weight:600}
+.btn-accent:hover{background:#d4ff8a;color:#0d0d0d}
+.last-updated{font-size:11px;color:var(--text3);font-family:var(--font-mono)}
+
+.content{padding:24px 28px}
+
+/* METRICS ROW */
+.metrics-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.metric-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);padding:16px 18px;position:relative;overflow:hidden}
+.metric-card.primary{border-color:rgba(200,249,122,0.2);background:rgba(200,249,122,0.04)}
+.metric-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+.metric-value{font-family:var(--font-mono);font-size:22px;font-weight:500;letter-spacing:-0.02em;line-height:1}
+.metric-value.accent{color:var(--accent)}
+.metric-delta{font-size:11px;margin-top:6px;display:flex;align-items:center;gap:4px}
+.delta-pos{color:var(--teal)}
+.delta-neg{color:var(--red)}
+.metric-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* TWO COLUMN */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
+.three-col{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);overflow:hidden}
+.card-header{padding:14px 18px 0;display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.1em;color:var(--text2)}
+.card-body{padding:14px 18px 18px}
+.card-action{font-size:11px;color:var(--text3);cursor:pointer;display:flex;align-items:center;gap:4px}
+.card-action:hover{color:var(--text2)}
+
+/* GOAL BARS */
+.goal-row{margin-bottom:16px}
+.goal-row:last-child{margin-bottom:0}
+.goal-meta{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.goal-name{font-size:13px;font-weight:500}
+.goal-numbers{font-family:var(--font-mono);font-size:11px;color:var(--text2)}
+.goal-bar-wrap{height:4px;background:var(--bg4);border-radius:2px;overflow:hidden}
+.goal-bar-fill{height:100%;border-radius:2px;transition:width 0.6s cubic-bezier(0.4,0,0.2,1)}
+.goal-footer{display:flex;justify-content:space-between;margin-top:5px;font-size:10px;color:var(--text3);font-family:var(--font-mono)}
+
+/* HOLDINGS TABLE */
+.htable{width:100%;border-collapse:collapse}
+.htable th{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);font-weight:500;padding:0 12px 10px;text-align:left;white-space:nowrap}
+.htable th:not(:first-child){text-align:right}
+.htable td{padding:9px 12px;border-top:1px solid var(--border);font-size:13px;vertical-align:middle}
+.htable td:not(:first-child){text-align:right;font-family:var(--font-mono);font-size:12px}
+.htable tr:hover td{background:var(--bg3)}
+.fund-name{font-weight:500;font-size:13px}
+.fund-cat{font-size:10px;color:var(--text3);margin-top:1px;text-transform:uppercase;letter-spacing:0.05em}
+
+/* ALLOCATION BREAKDOWN */
+.alloc-list{padding:0}
+.alloc-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.alloc-item:last-child{border-bottom:none}
+.alloc-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.alloc-name{font-size:12px;flex:1}
+.alloc-pct{font-family:var(--font-mono);font-size:12px;color:var(--text2);min-width:42px;text-align:right}
+.alloc-bar-wrap{width:60px;height:3px;background:var(--bg4);border-radius:2px}
+.alloc-bar-fill{height:100%;border-radius:2px}
+
+/* ALERTS */
+.alert{padding:10px 14px;border-radius:var(--radius-lg);margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;font-size:12px}
+.alert-warn{background:var(--amber-bg);border:1px solid rgba(245,166,35,0.2);color:var(--amber)}
+.alert-info{background:var(--blue-bg);border:1px solid rgba(79,156,249,0.2);color:var(--blue)}
+.alert-success{background:var(--teal-bg);border:1px solid rgba(82,200,156,0.2);color:var(--teal)}
+.alert i{font-size:14px;flex-shrink:0;margin-top:1px}
+.alert-text strong{display:block;font-weight:500;margin-bottom:2px}
+.alert-text span{color:var(--text2);font-size:11px}
+
+/* HEALTH SCORE */
+.score-ring{position:relative;display:flex;align-items:center;justify-content:center;width:72px;height:72px;flex-shrink:0}
+.score-num{font-family:var(--font-mono);font-size:20px;font-weight:500;color:var(--accent);position:absolute}
+.score-sub{font-size:10px;position:absolute;bottom:10px;color:var(--text3)}
+
+/* SCENARIO TABS */
+.scenario-tabs{display:flex;gap:4px;margin-bottom:14px}
+.stab{padding:4px 12px;font-size:11px;border-radius:var(--radius);cursor:pointer;border:1px solid var(--border);color:var(--text3);background:none;font-family:inherit;transition:all 0.12s}
+.stab.active{background:var(--bg4);color:var(--text);border-color:var(--border2)}
+.stab.bull.active{border-color:rgba(82,200,156,0.4);color:var(--teal)}
+.stab.base.active{border-color:rgba(79,156,249,0.4);color:var(--blue)}
+.stab.bear.active{border-color:rgba(249,115,115,0.4);color:var(--red)}
+
+/* REBALANCING */
+.rebal-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px}
+.rebal-row:last-child{border-bottom:none}
+.rebal-cat{flex:1;font-weight:500}
+.rebal-current{font-family:var(--font-mono);width:44px;text-align:right}
+.rebal-target{font-family:var(--font-mono);width:44px;text-align:right;color:var(--text3)}
+.rebal-diff{font-family:var(--font-mono);width:52px;text-align:right;font-weight:500}
+.rebal-drift-bar{width:60px;height:4px;background:var(--bg4);border-radius:2px;position:relative}
+.rebal-drift-fill{height:100%;border-radius:2px;position:absolute;top:0}
+
+/* MINI SPARKLINE */
+.sparkline-wrap{position:relative;height:40px}
+
+/* FIRE SECTION */
+.fire-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px}
+.fire-row:last-child{border-bottom:none}
+.fire-label{color:var(--text2)}
+.fire-val{font-family:var(--font-mono);font-weight:500}
+
+/* SECTION header */
+.section-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.section-title{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text)}
+
+/* XIRR chip */
+.xirr-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-family:var(--font-mono);font-size:11px;font-weight:500}
+.xirr-high{background:var(--teal-bg);color:var(--teal)}
+.xirr-mid{background:var(--blue-bg);color:var(--blue)}
+.xirr-low{background:var(--amber-bg);color:var(--amber)}
+
+/* IMPORT AREA */
+.import-zone{border:1px dashed var(--border2);border-radius:var(--radius-xl);padding:32px 24px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:16px}
+.import-zone:hover,.import-zone.dragover{background:var(--bg3);border-color:rgba(200,249,122,0.3)}
+.import-zone.dragover{border-color:var(--accent);background:var(--accent-bg)}
+.import-zone i{font-size:32px;color:var(--text3);display:block;margin-bottom:10px}
+.import-zone h3{font-size:14px;font-weight:500;margin-bottom:4px}
+.import-zone p{font-size:12px;color:var(--text3)}
+
+/* BROKER GRID */
+.broker-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.broker-btn{padding:10px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--bg3);cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:8px;transition:all 0.12s}
+.broker-btn:hover{border-color:var(--border2);color:var(--text);background:var(--bg4)}
+.broker-icon{width:24px;height:24px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+
+/* OVERVIEW SECTIONS */
+.section{display:none;animation:fadeIn 0.25s ease}
+.section.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* AI COACH PANEL */
+.coach-panel{background:linear-gradient(135deg,rgba(200,249,122,0.06) 0%,rgba(79,156,249,0.06) 100%);border:1px solid rgba(200,249,122,0.15);border-radius:var(--radius-xl);padding:16px 18px;margin-bottom:16px}
+.coach-tag{font-size:10px;text-transform:uppercase;letter-spacing:0.12em;color:var(--accent-dim);font-family:var(--font-mono);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.coach-tag::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);display:inline-block}
+.coach-insight{font-size:13px;color:var(--text);line-height:1.65;margin-bottom:10px}
+.coach-actions{display:flex;gap:8px;flex-wrap:wrap}
+.coach-chip{padding:4px 12px;border:1px solid var(--border2);border-radius:20px;font-size:11px;color:var(--text2);cursor:pointer;transition:all 0.12s;font-family:inherit}
+.coach-chip:hover{border-color:var(--accent-dim);color:var(--accent)}
+
+/* INFLATION NOTICE */
+.infl-notice{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--text3);font-family:var(--font-mono);padding:2px 8px;background:var(--bg3);border-radius:4px;margin-left:8px}
+
+/* TOAST NOTIFICATIONS */
+.toast-container{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{padding:12px 18px;border-radius:var(--radius-lg);font-size:12px;display:flex;align-items:center;gap:10px;animation:slideIn 0.3s ease;min-width:280px;box-shadow:0 8px 24px rgba(0,0,0,0.4)}
+.toast-success{background:#1a332a;border:1px solid rgba(82,200,156,0.3);color:var(--teal)}
+.toast-error{background:#331a1a;border:1px solid rgba(249,115,115,0.3);color:var(--red)}
+.toast-info{background:#1a2633;border:1px solid rgba(79,156,249,0.3);color:var(--blue)}
+.toast i{font-size:16px;flex-shrink:0}
+@keyframes slideIn{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}
+
+/* IMPORT WIZARD STEPS */
+.wizard-steps{display:flex;gap:0;margin-bottom:16px}
+.wizard-step{flex:1;text-align:center;padding:10px;background:var(--bg3);border:1px solid var(--border);transition:all 0.2s}
+.wizard-step:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.wizard-step:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.wizard-step.active{background:var(--accent-bg);border-color:rgba(200,249,122,0.2)}
+.wizard-step.active .wizard-step-label{color:var(--accent)}
+.wizard-step.completed{background:rgba(82,200,156,0.06);border-color:rgba(82,200,156,0.2)}
+.wizard-step.completed .wizard-step-label{color:var(--teal)}
+.wizard-step-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em}
+.wizard-step-name{font-size:12px;color:var(--text3);margin-top:2px}
+.wizard-step.active .wizard-step-name{color:var(--text);font-weight:500}
+
+/* IMPORT PREVIEW TABLE */
+.import-preview{max-height:200px;overflow-y:auto;margin:12px 0;border:1px solid var(--border);border-radius:var(--radius)}
+.import-preview table{width:100%;border-collapse:collapse;font-size:11px}
+.import-preview th{background:var(--bg3);padding:6px 10px;text-align:left;font-weight:500;color:var(--text2);position:sticky;top:0}
+.import-preview td{padding:5px 10px;border-top:1px solid var(--border);color:var(--text2)}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:2px}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .metrics-grid{grid-template-columns:repeat(2,1fr)}
+  .two-col,.three-col{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark"><span class="logo-dot"></span>WealthOS</div>
+      <div class="logo-sub">Personal Finance</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Overview</div>
+      <button class="nav-item active" data-section="dashboard"><i class="ti ti-layout-dashboard"></i>Dashboard</button>
+      <button class="nav-item" data-section="networth"><i class="ti ti-trending-up"></i>Net Worth</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Portfolio</div>
+      <button class="nav-item" data-section="holdings"><i class="ti ti-briefcase"></i>Holdings</button>
+      <button class="nav-item" data-section="allocation"><i class="ti ti-chart-pie"></i>Allocation</button>
+      <button class="nav-item" data-section="performance"><i class="ti ti-chart-line"></i>Performance</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">Planning</div>
+      <button class="nav-item" data-section="goals"><i class="ti ti-target"></i>Goals</button>
+      <button class="nav-item" data-section="projection"><i class="ti ti-rocket"></i>Projection</button>
+      <button class="nav-item" data-section="rebalancing"><i class="ti ti-refresh-alert" style="color:var(--amber)"></i>Rebalancing<span class="badge">!</span></button>
+      <button class="nav-item" data-section="fire"><i class="ti ti-flame"></i>FIRE Tracker</button>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-label">System</div>
+      <button class="nav-item" data-section="import"><i class="ti ti-upload"></i>Import Data</button>
+      <button class="nav-item" data-section="tax"><i class="ti ti-receipt-tax"></i>Tax Planner</button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="health-score-mini">
+        <div>
+          <div class="health-label">Portfolio Health</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px;font-family:var(--font-mono)">SCORE</div>
+        </div>
+        <div class="health-val">74</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <div class="page-title" id="pageTitle">Dashboard</div>
+        <div class="last-updated" id="lastUpdated">Last updated: May 23, 2026 · 09:14 AM</div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn" id="btnExport"><i class="ti ti-download"></i>Export</button>
+        <button class="btn" id="btnImport"><i class="ti ti-upload"></i>Import</button>
+        <button class="btn btn-accent"><i class="ti ti-sparkles"></i>AI Insights</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ══════════════════ DASHBOARD ══════════════════ -->
+      <div id="section-dashboard" class="section active">
+
+        <!-- AI COACH -->
+        <div class="coach-panel">
+          <div class="coach-tag">AI Financial Coach</div>
+          <div class="coach-insight">Your retirement corpus is on track at <strong>₹68.4L</strong> today. At your current SIP of ₹1.05L/mo with 10% annual step-up, you'll reach <strong>₹9.2 Cr</strong> by 2043 — but your inflation-adjusted target is <strong>₹10.8 Cr</strong>. A ₹6,000/mo increase in your smallcap SIP closes this gap entirely.</div>
+          <div class="coach-actions">
+            <button class="coach-chip">Optimize my SIPs →</button>
+            <button class="coach-chip">Run Monte Carlo</button>
+            <button class="coach-chip">Show me the gap</button>
+          </div>
+        </div>
+
+        <!-- ALERT: REBALANCING -->
+        <div class="alert alert-warn">
+          <i class="ti ti-alert-triangle"></i>
+          <div class="alert-text"><strong>Rebalancing required</strong><span>Equity allocation has drifted to 88.3% against your 80% target. Suggested action: redirect ₹12,000/mo SIP from Nifty 50 to PPF/NPS for 6 months.</span></div>
+        </div>
+
+        <!-- METRICS -->
+        <div class="metrics-grid" id="dashboardMetrics">
+          <div class="metric-card primary">
+            <div class="metric-label">Total Corpus</div>
+            <div class="metric-value accent" data-metric="totalCorpus">₹68.4L</div>
+            <div class="metric-delta"><span class="delta-pos"><i class="ti ti-arrow-up" style="font-size:10px"></i>₹4.2L</span><span style="color:var(--text3);font-size:11px;margin-left:4px">vs last month</span></div>
+            <div class="metric-sub" style="font-family:var(--font-mono)">+6.5% YTD</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Monthly SIP</div>
+            <div class="metric-value" data-metric="monthlySIP">₹1.05L</div>
+            <div class="metric-delta"><span class="delta-pos">+10% step-up</span><span style="color:var(--text3);font-size:11px;margin-left:4px">in Jan 2027</span></div>
+            <div class="metric-sub" style="font-family:var(--font-mono)">₹12.6L/yr invested</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Projected Corpus</div>
+            <div class="metric-value">₹9.2 Cr</div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">₹10.8 Cr target <span class="infl-notice"><i class="ti ti-trending-up" style="font-size:9px"></i>6% infl.</span></div>
+            <div class="metric-delta"><span class="delta-neg">₹1.6 Cr gap</span></div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Portfolio XIRR</div>
+            <div class="metric-value" style="color:var(--teal)" data-metric="portfolioXIRR">14.8%</div>
+            <div class="metric-delta"><span class="delta-pos"><i class="ti ti-arrow-up" style="font-size:10px"></i>+0.6%</span><span style="color:var(--text3);font-size:11px;margin-left:4px">vs last qtr</span></div>
+            <div class="metric-sub" style="font-family:var(--font-mono)">Nifty 50: 11.2% CAGR</div>
+          </div>
+        </div>
+
+        <!-- GOALS + ALLOCATION -->
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Goal Progress</div>
+              <span class="card-action" data-section="goals" style="cursor:pointer"><i class="ti ti-external-link" style="font-size:11px"></i>All goals</span>
+            </div>
+            <div class="card-body">
+              <div id="dashboardGoalProgress">
+                <!-- Dynamically rendered from state.goals -->
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Asset Allocation</div>
+              <span class="card-action">Target: 80:20 E:D</span>
+            </div>
+            <div class="card-body">
+              <div style="position:relative;height:140px;margin-bottom:14px">
+                <canvas id="allocDonut" role="img" aria-label="Asset allocation donut chart">Equity 88%, Debt 12%</canvas>
+              </div>
+              <div class="alloc-list" id="allocList">
+                <div class="alloc-item">
+                  <div class="alloc-dot" style="background:#4f9cf9"></div>
+                  <div class="alloc-name">Large Cap Index</div>
+                  <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:70%;background:#4f9cf9"></div></div>
+                  <div class="alloc-pct">28.4%</div>
+                </div>
+                <div class="alloc-item">
+                  <div class="alloc-dot" style="background:#a78bfa"></div>
+                  <div class="alloc-name">Flexi Cap</div>
+                  <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:55%;background:#a78bfa"></div></div>
+                  <div class="alloc-pct">22.1%</div>
+                </div>
+                <div class="alloc-item">
+                  <div class="alloc-dot" style="background:#52c89c"></div>
+                  <div class="alloc-name">Mid Cap Index</div>
+                  <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:40%;background:#52c89c"></div></div>
+                  <div class="alloc-pct">16.2%</div>
+                </div>
+                <div class="alloc-item">
+                  <div class="alloc-dot" style="background:#f97373"></div>
+                  <div class="alloc-name">Small Cap (Active)</div>
+                  <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:26%;background:#f97373"></div></div>
+                  <div class="alloc-pct">10.5%</div>
+                </div>
+                <div class="alloc-item">
+                  <div class="alloc-dot" style="background:#f5a623"></div>
+                  <div class="alloc-name">Small Cap Index</div>
+                  <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:18%;background:#f5a623"></div></div>
+                  <div class="alloc-pct">7.0%</div>
+                </div>
+                <div class="alloc-item">
+                  <div class="alloc-dot" style="background:#5a5550"></div>
+                  <div class="alloc-name">PPF + NPS (Debt)</div>
+                  <div class="alloc-bar-wrap"><div class="alloc-bar-fill" style="width:30%;background:#5a5550"></div></div>
+                  <div class="alloc-pct">15.8%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- GROWTH PROJECTION -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <div class="card-title">Corpus Projection</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:11px;color:var(--text3);font-family:var(--font-mono)">Inflation adj: 6%</span>
+              <div class="scenario-tabs" id="scenarioTabs">
+                <button class="stab bull active" data-scenario="bull">Bull 15%</button>
+                <button class="stab base" data-scenario="base">Base 12%</button>
+                <button class="stab bear" data-scenario="bear">Bear 8%</button>
+              </div>
+            </div>
+          </div>
+          <div class="card-body" style="padding-top:12px">
+            <div id="scenarioSummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px"></div>
+            <div style="position:relative;height:220px">
+              <canvas id="growthChart" role="img" aria-label="Corpus projection chart">Corpus projection chart</canvas>
+            </div>
+            <div id="chartLegend" style="display:flex;gap:16px;margin-top:10px;font-size:11px;color:var(--text3)"></div>
+          </div>
+        </div>
+
+        <!-- BOTTOM: REBALANCING + UPCOMING -->
+        <div class="two-col">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title" style="color:var(--amber)"><i class="ti ti-refresh-alert" style="font-size:12px;margin-right:4px"></i>Rebalancing Alert</div>
+              <span class="card-action">Fix this →</span>
+            </div>
+            <div class="card-body">
+              <div class="rebal-row" style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:4px">
+                <div class="rebal-cat">Category</div>
+                <div class="rebal-current">Now</div>
+                <div class="rebal-target">Target</div>
+                <div class="rebal-diff">Drift</div>
+              </div>
+              <div class="rebal-row"><div class="rebal-cat">Equity Total</div><div class="rebal-current" style="color:var(--red)">88.3%</div><div class="rebal-target">80.0%</div><div class="rebal-diff" style="color:var(--red)">+8.3%</div></div>
+              <div class="rebal-row"><div class="rebal-cat">Debt Total</div><div class="rebal-current" style="color:var(--amber)">11.7%</div><div class="rebal-target">20.0%</div><div class="rebal-diff" style="color:var(--amber)">−8.3%</div></div>
+              <div class="rebal-row"><div class="rebal-cat">Small Cap</div><div class="rebal-current">17.5%</div><div class="rebal-target">15.0%</div><div class="rebal-diff" style="color:var(--amber)">+2.5%</div></div>
+              <div class="rebal-row"><div class="rebal-cat">Large Cap</div><div class="rebal-current">28.4%</div><div class="rebal-target">30.0%</div><div class="rebal-diff">−1.6%</div></div>
+              <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+                <div style="font-size:11px;color:var(--text3)">Suggested action</div>
+                <div style="font-size:12px;margin-top:4px;line-height:1.6">Redirect ₹12,000/mo of SIP from <span style="color:var(--blue)">UTI Nifty 50</span> to <span style="color:var(--teal)">PPF/NPS</span> for 6 months to restore balance.</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><div class="card-title">Upcoming Actions</div></div>
+            <div class="card-body">
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <div class="alert alert-warn" style="margin:0"><i class="ti ti-calendar-due"></i><div class="alert-text"><strong>SIP Step-up due Jan 2027</strong><span>Increase all SIPs by 10%. New total: ₹1.155L/mo</span></div></div>
+                <div class="alert alert-info" style="margin:0"><i class="ti ti-receipt-tax"></i><div class="alert-text"><strong>LTCG Window: ₹1L threshold</strong><span>₹62,400 realized so far. ₹37,600 remaining before tax kicks in.</span></div></div>
+                <div class="alert alert-success" style="margin:0"><i class="ti ti-lock-open"></i><div class="alert-text"><strong>PPF Partial Withdrawal</strong><span>Year 7 unlocks partial withdrawal in FY27. Eligible: ₹90,000</span></div></div>
+                <div class="alert alert-info" style="margin:0"><i class="ti ti-clock"></i><div class="alert-text"><strong>ELSS Lock-in expires</strong><span>Parag Parikh ELSS units bought Apr 2024 unlock Apr 2027 (₹1.8L)</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ HOLDINGS ══════════════════ -->
+      <div id="section-holdings" class="section">
+        <div class="section-header">
+          <div class="section-title">Fund Holdings</div>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="holdingsSearch" placeholder="Search funds..." style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:5px 10px;font-size:12px;color:var(--text);outline:none;width:160px">
+            <button class="btn btn-accent" id="btnAddAsset"><i class="ti ti-plus"></i> Add Asset</button>
+            <button class="btn">Category <i class="ti ti-chevron-down" style="font-size:11px"></i></button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body" style="padding:0">
+            <table class="htable" id="holdingsTable">
+              <thead>
+                <tr>
+                  <th style="padding-left:18px">Fund</th>
+                  <th>Value</th>
+                  <th>Invested</th>
+                  <th>Gain</th>
+                  <th>XIRR</th>
+                  <th>SIP / mo</th>
+                  <th>Weight</th>
+                </tr>
+              </thead>
+              <tbody id="holdingsBody"></tbody>
+            </table>
+            <div id="holdingsFooter" style="padding:12px 18px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;font-family:var(--font-mono);color:var(--text2)"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ PROJECTION ══════════════════ -->
+      <div id="section-projection" class="section">
+        <div class="section-header"><div class="section-title">Corpus Projection</div></div>
+        <div class="alert alert-info" style="margin-bottom:16px">
+          <i class="ti ti-info-circle"></i>
+          <div class="alert-text"><strong>All projections are inflation-adjusted</strong><span>Using 6% annual inflation. Numbers shown are in today's purchasing power.</span></div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><div class="card-title">Projection Settings</div></div>
+          <div class="card-body">
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+              <div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">CAGR Assumption</div>
+                <input type="number" value="12" min="4" max="20" step="0.5" id="cagrProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Annual Step-up %</div>
+                <input type="number" value="10" min="0" max="20" id="stepupProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Retire Year</div>
+                <input type="number" value="2043" min="2030" max="2060" id="retireProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Inflation %</div>
+                <input type="number" value="6" min="3" max="10" id="inflProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">3-Scenario Projection</div></div>
+          <div class="card-body">
+            <div id="projSummary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px"></div>
+            <div style="position:relative;height:280px">
+              <canvas id="projChart" role="img" aria-label="Three-scenario projection chart">Three-scenario projection</canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ FIRE ══════════════════ -->
+      <div id="section-fire" class="section">
+        <div class="section-header"><div class="section-title">FIRE Tracker</div></div>
+        <div class="two-col" style="margin-bottom:16px">
+          <div class="card">
+            <div class="card-header"><div class="card-title" style="color:var(--accent)">FI Number</div></div>
+            <div class="card-body">
+              <div style="font-family:var(--font-mono);font-size:32px;font-weight:500;color:var(--accent);margin-bottom:4px">₹6.25 Cr</div>
+              <div style="font-size:12px;color:var(--text3);margin-bottom:16px">25× annual expenses (4% SWR rule)</div>
+              <div class="fire-row"><div class="fire-label">Monthly expense today</div><div class="fire-val">₹80,000</div></div>
+              <div class="fire-row"><div class="fire-label">Annual expense (current)</div><div class="fire-val">₹9.6L</div></div>
+              <div class="fire-row"><div class="fire-label">Annual expense at FIRE (infl. adj.)</div><div class="fire-val">₹17.2L</div></div>
+              <div class="fire-row"><div class="fire-label">FI Number (inflation-adjusted)</div><div class="fire-val" style="color:var(--accent)">₹4.3 Cr</div></div>
+              <div class="fire-row" style="border:none"><div class="fire-label">Current corpus coverage</div><div class="fire-val" style="color:var(--blue)">15.9%</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">FIRE Timeline</div></div>
+            <div class="card-body">
+              <div style="font-family:var(--font-mono);font-size:28px;font-weight:500;color:var(--teal);margin-bottom:4px">2043</div>
+              <div style="font-size:12px;color:var(--text3);margin-bottom:16px">Projected FIRE year · Age 50</div>
+              <div class="fire-row"><div class="fire-label">Years to FIRE</div><div class="fire-val">17 years</div></div>
+              <div class="fire-row"><div class="fire-label">Monthly SIP needed</div><div class="fire-val">₹1.05L</div></div>
+              <div class="fire-row"><div class="fire-label">Additional SIP to close gap</div><div class="fire-val" style="color:var(--amber)">+₹6,000/mo</div></div>
+              <div class="fire-row"><div class="fire-label">Corpus at FIRE (base, infl. adj.)</div><div class="fire-val">₹4.6 Cr</div></div>
+              <div class="fire-row" style="border:none"><div class="fire-label">Retirement runway (30 yrs @ 4%)</div><div class="fire-val" style="color:var(--teal)">Sufficient</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="alert alert-success">
+          <i class="ti ti-check"></i>
+          <div class="alert-text"><strong>On track for FIRE at 50</strong><span>Your current SIP trajectory reaches your FI number in 2043. Adding ₹6,000/mo to your smallcap SIP provides 2-year buffer against sequence-of-returns risk.</span></div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ IMPORT ══════════════════ -->
+      <div id="section-import" class="section">
+        <div class="section-header"><div class="section-title">Import Portfolio Data</div></div>
+        <div class="import-zone" id="importZone">
+          <i class="ti ti-cloud-upload"></i>
+          <h3>Drop CSV or Excel here</h3>
+          <p>Supports: Fund Name · Current Value · Monthly SIP · Category · XIRR %</p>
+        </div>
+        <input type="file" id="fileIn" accept=".csv,.xlsx,.xls" style="display:none">
+        <div style="margin-bottom:16px">
+          <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Or connect your broker</div>
+          <div class="broker-grid">
+            <button class="broker-btn"><div class="broker-icon" style="background:#2d7a4f;color:#fff">Z</div>Zerodha / Kite</button>
+            <button class="broker-btn"><div class="broker-icon" style="background:#00d09c;color:#fff">G</div>Groww</button>
+            <button class="broker-btn"><div class="broker-icon" style="background:#7c3aed;color:#fff">K</div>Kuvera</button>
+            <button class="broker-btn"><div class="broker-icon" style="background:#e65c00;color:#fff">C</div>CAMS CAS</button>
+            <button class="broker-btn"><div class="broker-icon" style="background:#003087;color:#fff">N</div>NSDL / CDSL</button>
+            <button class="broker-btn"><div class="broker-icon" style="background:#3a3a3a;color:#aaa">+</div>Manual entry</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Import Wizard</div></div>
+          <div class="card-body">
+            <div class="wizard-steps" id="wizardSteps">
+              <div class="wizard-step active" data-step="1">
+                <div class="wizard-step-label">Step 1</div>
+                <div class="wizard-step-name">Upload</div>
+              </div>
+              <div class="wizard-step" data-step="2">
+                <div class="wizard-step-label">Step 2</div>
+                <div class="wizard-step-name">Map Columns</div>
+              </div>
+              <div class="wizard-step" data-step="3">
+                <div class="wizard-step-label">Step 3</div>
+                <div class="wizard-step-name">Validate</div>
+              </div>
+              <div class="wizard-step" data-step="4">
+                <div class="wizard-step-label">Step 4</div>
+                <div class="wizard-step-name">Confirm</div>
+              </div>
+            </div>
+            <div id="wizardContent">
+              <div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">
+                <i class="ti ti-upload" style="font-size:28px;display:block;margin-bottom:8px"></i>
+                Upload a file above to begin. Template: <a href="#" id="downloadTemplate" style="color:var(--blue)">Download CSV template</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════ TAX ══════════════════ -->
+      <div id="section-tax" class="section">
+        <div class="section-header"><div class="section-title">Tax Planner — FY 2025-26</div></div>
+        <div class="metrics-grid" style="margin-bottom:16px">
+          <div class="metric-card"><div class="metric-label">LTCG Realized</div><div class="metric-value">₹62,400</div><div class="metric-sub" style="font-family:var(--font-mono)">₹37,600 remaining tax-free</div></div>
+          <div class="metric-card primary"><div class="metric-label">Unrealized LTCG</div><div class="metric-value accent">₹5,37,400</div><div class="metric-sub">Tax if redeemed: ~₹53,740</div></div>
+          <div class="metric-card"><div class="metric-label">ELSS Lock-ins</div><div class="metric-value">₹3.2L</div><div class="metric-sub">Unlocks Apr 2027</div></div>
+          <div class="metric-card"><div class="metric-label">80C Used</div><div class="metric-value">₹1.50L</div><div class="metric-sub" style="color:var(--teal);font-family:var(--font-mono)">Limit fully used ✓</div></div>
+        </div>
+        <div class="alert alert-info" style="margin-bottom:16px">
+          <i class="ti ti-bulb"></i>
+          <div class="alert-text"><strong>Tax Harvesting Opportunity</strong><span>You have ₹37,600 of LTCG headroom left. Consider booking profits on UTI Nifty 50 (₹1.22L gain) and reinvesting same day — saves ~₹3,760 in future taxes.</span></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">ELSS Lock-in Calendar</div></div>
+          <div class="card-body">
+            <table class="htable">
+              <thead><tr><th style="padding-left:0">Fund</th><th>Purchase Date</th><th>Lock-in Until</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td style="padding-left:0"><div class="fund-name">Parag Parikh ELSS</div></td><td>Apr 2022</td><td>Apr 2025</td><td>₹60,000</td><td><span class="xirr-chip xirr-high">Unlocked</span></td></tr>
+                <tr><td style="padding-left:0"><div class="fund-name">Parag Parikh ELSS</div></td><td>Apr 2024</td><td>Apr 2027</td><td>₹1,80,000</td><td><span class="xirr-chip xirr-low">Locked</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- OTHER SECTIONS -->
+      <div id="section-networth" class="section">
+        <div class="section-header"><div class="section-title">Net Worth</div></div>
+        <div class="alert alert-info"><i class="ti ti-info-circle"></i><div class="alert-text"><strong>Add your liabilities</strong><span>Add home loans, car loans, or other liabilities to see your true net worth.</span></div></div>
+        <div class="metrics-grid">
+          <div class="metric-card primary"><div class="metric-label">Total Assets</div><div class="metric-value accent">₹68.4L</div><div class="metric-sub">Mutual funds + PPF + NPS</div></div>
+          <div class="metric-card"><div class="metric-label">Total Liabilities</div><div class="metric-value" style="color:var(--red)">₹0</div><div class="metric-sub">No liabilities tracked</div></div>
+          <div class="metric-card primary"><div class="metric-label">Net Worth</div><div class="metric-value accent">₹68.4L</div><div class="metric-sub">Assets − Liabilities</div></div>
+          <div class="metric-card"><div class="metric-label">Debt-to-Asset Ratio</div><div class="metric-value" style="color:var(--teal)">0%</div><div class="metric-sub">Excellent</div></div>
+        </div>
+      </div>
+      <div id="section-allocation" class="section">
+        <div class="section-header">
+          <div class="section-title">Goal-wise Allocation</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btnRefreshAlloc"><i class="ti ti-refresh"></i> Refresh</button>
+            <button class="btn" id="btnAllocAutoFromTab"><i class="ti ti-wand"></i> Auto Allocate</button>
+            <button class="btn btn-accent" id="btnEditAlloc"><i class="ti ti-pencil"></i> Edit Allocation</button>
+          </div>
+        </div>
+        <div id="goalAllocTiles" class="goal-tiles-grid">
+          <!-- Rendered by JS: one tile per goal -->
+        </div>
+      </div>
+      <div id="section-performance" class="section">
+        <div class="section-header"><div class="section-title">Performance</div></div>
+        <div class="metrics-grid">
+          <div class="metric-card primary"><div class="metric-label">Overall XIRR</div><div class="metric-value accent">14.8%</div><div class="metric-sub">Since inception</div></div>
+          <div class="metric-card"><div class="metric-label">Benchmark CAGR</div><div class="metric-value">11.2%</div><div class="metric-sub">Nifty 50 TRI</div></div>
+          <div class="metric-card"><div class="metric-label">Alpha Generated</div><div class="metric-value" style="color:var(--teal)">+3.6%</div><div class="metric-sub">vs Nifty 50</div></div>
+          <div class="metric-card"><div class="metric-label">Best Fund XIRR</div><div class="metric-value" style="color:var(--teal)">22.3%</div><div class="metric-sub">Invesco Smallcap</div></div>
+        </div>
+      </div>
+      <div id="section-goals" class="section">
+        <div class="section-header">
+          <div class="section-title">Goals</div>
+          <div style="display:flex;gap:8px">
+            <button class="btn" id="btnAutoAllocate"><i class="ti ti-wand"></i> Auto Allocate</button>
+            <button class="btn btn-accent" id="btnAddGoal"><i class="ti ti-plus"></i> Add Goal</button>
+          </div>
+        </div>
+        <div id="goalsAlerts"></div>
+        <div class="goals-grid" id="goalsGrid">
+          <!-- Goals rendered dynamically by JS -->
+        </div>
+      </div>
+
+      <div id="section-rebalancing" class="section">
+        <div class="section-header">
+          <div class="section-title">Goal-wise Rebalancing</div>
+          <button class="btn btn-accent" id="btnRebalRefresh"><i class="ti ti-refresh"></i> Recalculate</button>
+        </div>
+        <div id="rebalAlerts"></div>
+        <div id="rebalTiles" class="goal-tiles-grid">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Goal Modal -->
+<div class="modal-overlay" id="goalModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="goalModalTitle">Add Goal</div>
+      <button class="modal-close" id="goalModalClose"><i class="ti ti-x"></i></button>
+    </div>
+    <form id="goalForm" class="modal-body"></form>
+    <div class="modal-footer">
+      <button type="button" class="btn" id="goalModalCancel">Cancel</button>
+      <button type="submit" form="goalForm" class="btn btn-accent" id="goalModalSave">Save Goal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auto Allocate Modal -->
+<div class="modal-overlay" id="allocModal">
+  <div class="modal-box" style="max-width:640px">
+    <div class="modal-header">
+      <div class="modal-title">Auto Allocate Holdings → Goals</div>
+      <button class="modal-close" id="allocModalClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="allocModalBody">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" id="allocModalCancel">Cancel</button>
+      <button type="button" class="btn btn-accent" id="allocModalApply"><i class="ti ti-check"></i> Apply Allocation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Allocation Modal -->
+<div class="modal-overlay" id="editAllocModal">
+  <div class="modal-box" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title">Edit Fund → Goal Allocation</div>
+      <button class="modal-close" id="editAllocModalClose"><i class="ti ti-x"></i></button>
+    </div>
+    <div class="modal-body" id="editAllocModalBody" style="max-height:60vh;overflow-y:auto">
+      <!-- Rendered by JS -->
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn" id="editAllocModalCancel">Cancel</button>
+      <button type="button" class="btn btn-accent" id="editAllocModalSave"><i class="ti ti-check"></i> Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Asset Modal -->
+<div class="modal-overlay" id="assetModal">
+  <div class="modal-box" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title" id="assetModalTitle">Add Asset</div>
+      <button class="modal-close" id="assetModalClose"><i class="ti ti-x"></i></button>
+    </div>
+    <form id="assetForm" class="modal-body"></form>
+    <div class="modal-footer">
+      <button type="button" class="btn" id="assetModalCancel">Cancel</button>
+      <button type="submit" form="assetForm" class="btn btn-accent" id="assetModalSave"><i class="ti ti-check"></i> Add to Holdings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- CDN Libraries (loaded once) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+
+<!-- App Logic -->
+<script src="wealthos_app.js"></script>
+</body>
+</html>
