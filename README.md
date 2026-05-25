@@ -1,15 +1,17 @@
 # WealthOS — Personal Finance Dashboard
 
-A single-page financial planning tool for Indian investors. Tracks mutual fund holdings, demat assets, manual assets (PF/NPS/PPF/Gold), goal-based planning, allocation analysis, and rebalancing recommendations.
+A single-page financial planning tool for Indian investors. Tracks mutual fund holdings, demat assets, manual assets (PF/NPS/PPF/Gold), goal-based planning, allocation analysis, rebalancing recommendations, and insurance policies.
 
 ## 📁 Project Structure
 
 ```
 wealthos/
-├── wealthos_dashboard.html   # HTML structure + CSS (913 lines)
-├── wealthos_app.js           # All application logic (2303 lines)
+├── wealthos_dashboard.html   # HTML structure + CSS (1096 lines)
+├── wealthos_app.js           # All application logic (2782 lines)
 ├── README.md                 # This file
 ├── ARCHITECTURE.md           # Detailed architecture & module docs
+├── CHANGELOG.md              # Release history
+├── .gitignore                # OS/IDE exclusions
 └── sample_portfolio.csv      # Sample CSV for testing import
 ```
 
@@ -24,7 +26,7 @@ wealthos/
 | Library | Version | Purpose |
 |---------|---------|---------|
 | [Chart.js](https://www.chartjs.org/) | 4.4.1 | Donut charts, growth projections |
-| [SheetJS (xlsx)](https://sheetjs.com/) | 0.20.1 | Excel file parsing for CAS import |
+| [SheetJS (xlsx)](https://sheetjs.com/) | 0.20.1 | Excel file parsing & multi-sheet export |
 | [Tabler Icons](https://tabler.io/icons) | 2.44.0 | Icon font (200+ icons used) |
 | [Google Fonts](https://fonts.google.com/) | — | Syne (display), DM Mono (monospace) |
 
@@ -34,14 +36,23 @@ wealthos/
 - **Import from CAS Excel** — auto-detects CDSL CAS format (MF_Holdings + Demat sheets)
 - **CSV/XLSX import** — generic import with 4-step wizard (Upload → Map → Validate → Confirm)
 - **Add Manual Assets** — EPF, PPF, NPS, Physical Gold, SGB, FD, Real Estate, Savings, SSY, Crypto
-- **Export to CSV** — download portfolio as spreadsheet
+- **Export to Excel** — multi-sheet `.xlsx` with Holdings, Goals, Insurance, and Goal Allocation tabs
 - **Live search** — filter holdings by name
 
 ### Goal-Based Planning
 - **CRUD goals** — add, edit, delete with priority levels (High/Medium/Low)
 - **Goal categories** — Retirement, Education, Lifestyle, Safety Net, Investment, Other
-- **Progress tracking** — funded %, gap amount, progress bars
-- **SIP calculator** — computes monthly SIP needed to reach goal on time (12% CAGR assumed)
+- **Progress tracking** — funded %, SIP required to reach goal on time
+- **SIP calculator** — PMT formula with FV of current amount, using assumed CAGR
+
+### Insurance Tracker
+- **Full CRUD** — add, edit, delete insurance policies
+- **10 policy types** — Term Life, Health, Super Top-up, Critical Illness, Personal Accident, Motor, Home, Travel, ULIP, Other
+- **Policy details** — Sum Assured, Premium (Annual/Half-Yearly/Quarterly/Monthly), Policy Number, Start/End dates, Cover Till (maturity), Nominee, Covered Members, Notes
+- **Summary metrics** — total Life Cover, Health Cover, Annual Premium, Policy count
+- **Renewal alerts** — warns 60 days before expiry (urgent ≤15 days), flags expired policies
+- **Coverage check** — alerts if no term life insurance exists
+- **localStorage persistence** — key: `wealthos_insurance`
 
 ### Allocation & Rebalancing
 - **Auto Allocate** — smart mapping of holdings to goals based on:
@@ -65,14 +76,20 @@ wealthos/
 
 ### Dashboard
 - **Auto-refreshes** on every navigation — always shows current data
-- **Metrics** — Total Corpus, Monthly SIP, Portfolio XIRR, Holdings count
-- **Goal Progress** — dynamic bars for top 5 goals by priority
+- **Metrics** — Total Corpus, Monthly SIP (+ required for all goals), Projected Corpus (inflation-adjusted, sum-of-all-goals target), Portfolio XIRR (with Nifty 50 10Y CAGR benchmark)
+- **Goal Progress** — dynamic bars for top 5 goals showing SIP required per month
 - **Growth projection** — Bull/Base/Bear scenarios with Chart.js
 - **Asset allocation donut** — visual portfolio split
 
+### Projection
+- **Inflation-adjusted** — all numbers in today's purchasing power
+- **Current snapshot** — Total Corpus (read-only), Monthly SIP (editable), Equity % / Debt % (editable, synced to 100%)
+- **Settings** — CAGR, Annual Step-up %, Retire Year, Inflation %
+- **3-Scenario chart** — Bull (CAGR+3%), Base, Bear (CAGR-4%) with real values
+- **What-if analysis** — edit SIP/equity/debt to see immediate impact
+
 ### Other Sections
 - **Performance** — XIRR, benchmark CAGR, alpha
-- **Projection** — future value calculator with SIP step-up
 - **Tax Planner** — LTCG tracking, ELSS lock-in calendar
 - **Net Worth** — total assets view
 - **FIRE Tracker** — financial independence calculator
@@ -86,6 +103,7 @@ All data persists in browser `localStorage`:
 | `wealthos_portfolio` | Holdings array |
 | `wealthos_goals` | Goals array |
 | `wealthos_goal_fund_map` | Goal → Fund allocation mapping |
+| `wealthos_insurance` | Insurance policies array |
 
 To reset: `localStorage.clear()` in browser console, then refresh.
 
@@ -140,6 +158,11 @@ Add to `ASSET_PRESETS` array in `wealthos_app.js`:
 ```js
 { label: 'My Asset', category: 'Category · SubType', defaultXirr: 8.0 }
 ```
+
+### Equity/Debt Classification (for Projection)
+- **Equity**: Large Cap, Mid Cap, Small Cap, Flexi Cap, Index funds, International/Nasdaq, Hybrid/NPS
+- **Debt**: Debt, PPF, Liquid, FD, Bonds, Gold/SGB, EPF, SSY
+- Always sums to 100%
 
 ## 📋 Browser Support
 

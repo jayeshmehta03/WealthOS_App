@@ -42,6 +42,7 @@
   const state = {
     holdings: [],
     goals: [],
+    insurance: [],
     goalFundMap: {},
     currentScenario: 'bull',
     importStep: 1,
@@ -640,31 +641,96 @@
 
   /** Export current holdings to CSV file */
   function exportToCSV() {
-    if (state.holdings.length === 0) {
-      toast('No holdings to export', 'info');
+    if (state.holdings.length === 0 && state.goals.length === 0 && (!state.insurance || state.insurance.length === 0)) {
+      toast('No data to export', 'info');
       return;
     }
 
-    const headers = ['Fund Name', 'Current Value', 'Invested', 'Gain', 'XIRR %', 'Monthly SIP', 'Category'];
-    const rows = state.holdings.map(h => [
-      `"${h.name}"`,
-      h.value,
-      h.invested,
-      h.value - h.invested,
-      h.xirr,
-      h.sip,
-      `"${h.category}"`,
-    ]);
+    const wb = XLSX.utils.book_new();
 
-    const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
+    // ── Sheet 1: Holdings ──
+    if (state.holdings.length > 0) {
+      const holdingsData = state.holdings.map(h => ({
+        'Fund Name': h.name,
+        'Category': h.category,
+        'Current Value (₹)': h.value,
+        'Invested (₹)': h.invested,
+        'Gain (₹)': h.value - h.invested,
+        'XIRR %': h.xirr,
+        'Monthly SIP (₹)': h.sip,
+        'Units': h.units || '',
+        'NAV': h.nav || '',
+      }));
+      const wsHoldings = XLSX.utils.json_to_sheet(holdingsData);
+      XLSX.utils.book_append_sheet(wb, wsHoldings, 'Holdings');
+    }
+
+    // ── Sheet 2: Goals ──
+    if (state.goals.length > 0) {
+      const goalsData = state.goals.map(g => ({
+        'Goal Name': g.name,
+        'Category': g.category || '',
+        'Priority': g.priority,
+        'Target Amount (₹)': g.targetAmount,
+        'Current Amount (₹)': g.currentAmount,
+        'Progress %': g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0,
+        'Target Year': g.targetYear || 'Ongoing',
+        'Monthly SIP (₹)': g.monthlySIP,
+      }));
+      const wsGoals = XLSX.utils.json_to_sheet(goalsData);
+      XLSX.utils.book_append_sheet(wb, wsGoals, 'Goals');
+    }
+
+    // ── Sheet 3: Insurance ──
+    if (state.insurance && state.insurance.length > 0) {
+      const freqLabels = { annual: 'Annual', half_yearly: 'Half-Yearly', quarterly: 'Quarterly', monthly: 'Monthly' };
+      const insData = state.insurance.map(p => ({
+        'Policy Name': p.name,
+        'Type': INSURANCE_TYPE_LABELS[p.type] || p.type,
+        'Sum Assured (₹)': parseNum(p.sumAssured),
+        'Annual Premium (₹)': parseNum(p.annualPremium),
+        'Premium Frequency': freqLabels[p.premiumFreq] || 'Annual',
+        'Policy Number': p.policyNumber || '',
+        'Start Date': p.startDate || '',
+        'Renewal Date': p.endDate || '',
+        'Cover Till': p.coverTill || '',
+        'Nominee': p.nominee || '',
+        'Covered Members': p.coveredMembers || '',
+        'Notes': p.notes || '',
+      }));
+      const wsInsurance = XLSX.utils.json_to_sheet(insData);
+      XLSX.utils.book_append_sheet(wb, wsInsurance, 'Insurance');
+    }
+
+    // ── Sheet 4: Goal-Fund Allocation ──
+    if (state.goalFundMap && Object.keys(state.goalFundMap).length > 0) {
+      const allocRows = [];
+      Object.entries(state.goalFundMap).forEach(([holdingName, mapping]) => {
+        if (mapping.goalId) {
+          const goal = state.goals.find(g => g.id === mapping.goalId);
+          allocRows.push({
+            'Holding': holdingName,
+            'Assigned Goal': goal ? goal.name : mapping.goalId,
+            'Allocation %': mapping.pct || 100,
+          });
+        }
+      });
+      if (allocRows.length > 0) {
+        const wsAlloc = XLSX.utils.json_to_sheet(allocRows);
+        XLSX.utils.book_append_sheet(wb, wsAlloc, 'Goal Allocation');
+      }
+    }
+
+    // ── Generate & Download ──
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `wealthos_holdings_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `wealthos_export_${new Date().toISOString().slice(0, 10)}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
-    toast('Holdings exported to CSV', 'success');
+    toast('Exported to Excel (Holdings, Goals, Insurance, Allocation)', 'success');
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -786,20 +852,48 @@
     const retireYear = parseInt($('#retireProj')?.value) || 2043;
     const infl = parseFloat($('#inflProj')?.value) || 6;
     const years = Math.max(1, retireYear - 2026);
+    state._assumedCAGR = cagr;
+
+    // Clamp year to 4-digit valid range
+    if (retireYear < 2026 || retireYear > 2070) return;
 
     const ctx = document.getElementById('projChart');
     if (!ctx) return;
 
     const totalCorpus = state.holdings.reduce((s, h) => s + h.value, 0) || 6840000;
-    const totalSIP = state.holdings.reduce((s, h) => s + h.sip, 0) || 105000;
+    const computedSIP = state.holdings.reduce((s, h) => s + h.sip, 0) || 105000;
+
+    // Compute equity/debt split from holdings (equity+debt = 100%)
+    let equityVal = 0, debtVal = 0;
+    state.holdings.forEach(h => {
+      const ac = getAssetClass(h);
+      if (ac === 'debt' || ac === 'gold') debtVal += h.value;
+      else equityVal += h.value;
+    });
+    const totalVal = equityVal + debtVal || 1;
+    const equityPct = Math.round((equityVal / totalVal) * 100);
+    const debtPct = 100 - equityPct;
+
+    // Populate snapshot fields (only set if user hasn't manually edited)
+    const corpusEl = $('#projCurrentCorpus');
+    if (corpusEl) corpusEl.textContent = fmtINR(totalCorpus);
+    const sipEl = $('#projMonthlySIP');
+    if (sipEl && !sipEl._userEdited) sipEl.value = computedSIP;
+    const eqEl = $('#projEquityPct');
+    if (eqEl && !eqEl._userEdited) eqEl.value = equityPct;
+    const dtEl = $('#projDebtPct');
+    if (dtEl && !dtEl._userEdited) dtEl.value = debtPct;
+
+    // Use editable SIP value for projection
+    const totalSIP = parseFloat($('#projMonthlySIP')?.value) || computedSIP;
 
     const bull = computeCorpus(Math.min(cagr + 3, 20), stepup, years, totalCorpus, totalSIP, infl);
     const base = computeCorpus(cagr, stepup, years, totalCorpus, totalSIP, infl);
     const bear = computeCorpus(Math.max(cagr - 4, 4), stepup, years, totalCorpus, totalSIP, infl);
 
-    const fb = bull.nominalData[bull.nominalData.length - 1];
-    const fm = base.nominalData[base.nominalData.length - 1];
-    const fw = bear.nominalData[bear.nominalData.length - 1];
+    const fb = bull.realData[bull.realData.length - 1];
+    const fm = base.realData[base.realData.length - 1];
+    const fw = bear.realData[bear.realData.length - 1];
 
     const summaryEl = $('#projSummary');
     if (summaryEl) {
@@ -812,9 +906,9 @@
     const chartData = {
       labels: base.labels,
       datasets: [
-        { label: 'Bull', data: bull.nominalData, borderColor: '#52c89c', backgroundColor: 'rgba(82,200,156,0.05)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
-        { label: 'Base', data: base.nominalData, borderColor: '#4f9cf9', backgroundColor: 'rgba(79,156,249,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
-        { label: 'Bear', data: bear.nominalData, borderColor: '#f97373', backgroundColor: 'rgba(249,115,115,0.04)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Bull', data: bull.realData, borderColor: '#52c89c', backgroundColor: 'rgba(82,200,156,0.05)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
+        { label: 'Base', data: base.realData, borderColor: '#4f9cf9', backgroundColor: 'rgba(79,156,249,0.07)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2 },
+        { label: 'Bear', data: bear.realData, borderColor: '#f97373', backgroundColor: 'rgba(249,115,115,0.04)', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 1.5 },
       ],
     };
 
@@ -886,15 +980,50 @@
       ? state.holdings.reduce((s, h) => s + h.xirr * h.invested, 0) / totalInvested
       : 0;
 
-    // Update metric cards if they have data-metric attributes
-    const corpusEl = $('[data-metric="totalCorpus"]');
-    if (corpusEl) corpusEl.textContent = fmtINR(totalValue);
+    // Projection params (use state cache or defaults)
+    const cagr = state._assumedCAGR || 12;
+    const stepup = parseFloat($('#stepupProj')?.value) || 10;
+    const retireYear = parseInt($('#retireProj')?.value) || 2043;
+    const infl = parseFloat($('#inflProj')?.value) || 6;
+    const years = Math.max(1, retireYear - 2026);
 
-    const sipEl = $('[data-metric="monthlySIP"]');
-    if (sipEl) sipEl.textContent = fmtINR(totalSIP);
+    // Compute projected corpus (base scenario, inflation-adjusted)
+    const sipForProjection = totalSIP || 105000;
+    const projected = computeCorpus(cagr, stepup, years, totalValue || 6840000, sipForProjection, infl);
+    const projectedCorpus = projected.realData[projected.realData.length - 1];
 
-    const xirrEl = $('[data-metric="portfolioXIRR"]');
-    if (xirrEl) xirrEl.textContent = weightedXIRR.toFixed(1) + '%';
+    // Target = sum of all goals
+    const target = state.goals.reduce((s, g) => s + (g.targetAmount || 0), 0) || 108000000;
+    const gap = target - projectedCorpus;
+
+    // Compute total SIP required across all goals
+    const totalGoalSIP = state.goals.reduce((s, g) => s + (g.monthlySIP || 0), 0);
+
+    // ── Render dashboard metric cards ──
+    const metricsEl = $('#dashboardMetrics');
+    if (metricsEl) {
+      metricsEl.innerHTML = `
+        <div class="metric-card primary">
+          <div class="metric-label">Total Corpus</div>
+          <div class="metric-value accent">${fmtINR(totalValue)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Monthly SIP</div>
+          <div class="metric-value">${fmtINR(sipForProjection)}</div>
+          <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">${fmtINR(totalGoalSIP)} required for all goals</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Projected Corpus</div>
+          <div class="metric-value">${fmtINR(projectedCorpus)}</div>
+          <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">${fmtINR(target)} target <span class="infl-notice"><i class="ti ti-trending-up" style="font-size:9px"></i>${infl}% infl.</span></div>
+          ${gap > 0 ? `<div class="metric-delta"><span class="delta-neg">${fmtINR(gap)} gap</span></div>` : ''}
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Portfolio XIRR</div>
+          <div class="metric-value" style="color:var(--teal)">${weightedXIRR.toFixed(1)}%</div>
+          <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Nifty 50: 12.2% (10Y CAGR)</div>
+        </div>`;
+    }
 
     // Update last updated timestamp
     const now = new Date();
@@ -916,6 +1045,8 @@
     const container = $('#dashboardGoalProgress');
     if (!container) return;
 
+    const assumedReturn = (state._assumedCAGR || 12) / 100;
+
     // Show top goals (sorted by priority then by gap)
     const goalsToShow = [...state.goals]
       .sort((a, b) => {
@@ -936,8 +1067,19 @@
       else if (pct < 40) barColor = 'var(--amber)';
       else if (pct >= 75) barColor = 'var(--teal)';
 
-      // Status text
-      let statusText = gap > 0 ? `${fmtINR(gap)} gap` : '✓ Achieved';
+      // Compute SIP required to reach goal on time
+      let statusText = '✓ Achieved';
+      if (gap > 0) {
+        const yearsLeft = g.targetYear ? Math.max(0.5, g.targetYear - new Date().getFullYear()) : 10;
+        const monthsLeft = Math.round(yearsLeft * 12);
+        const monthlyRate = Math.pow(1 + assumedReturn, 1 / 12) - 1;
+        const fvCurrent = g.currentAmount * Math.pow(1 + assumedReturn, yearsLeft);
+        const remaining = g.targetAmount - fvCurrent;
+        const sipRequired = remaining > 0
+          ? Math.round(remaining * monthlyRate / (Math.pow(1 + monthlyRate, monthsLeft) - 1))
+          : 0;
+        statusText = sipRequired > 0 ? `SIP: ${fmtINR(sipRequired)}/mo` : '✓ On track';
+      }
       let statusStyle = gap > 0 ? (pct < 25 && g.priority === 'high' ? 'color:var(--red)' : 'color:var(--amber)') : 'color:var(--teal)';
 
       return `<div class="goal-row" ${idx === goalsToShow.length - 1 ? 'style="margin-bottom:0"' : ''}>
@@ -958,7 +1100,7 @@
   const SECTION_TITLES = {
     dashboard: 'Dashboard', holdings: 'Holdings', allocation: 'Allocation',
     performance: 'Performance', goals: 'Goals', projection: 'Projection',
-    rebalancing: 'Rebalancing', fire: 'FIRE Tracker', import: 'Import Data',
+    rebalancing: 'Rebalancing', fire: 'FIRE Tracker', insurance: 'Insurance Tracker', import: 'Import Data',
     tax: 'Tax Planner', networth: 'Net Worth',
   };
 
@@ -2143,6 +2285,326 @@
   }
 
   // ─────────────────────────────────────────────────────────────────
+  // ─── INSURANCE TRACKER MODULE ─────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
+
+  const INSURANCE_STORAGE_KEY = 'wealthos_insurance';
+
+  const INSURANCE_TYPE_LABELS = {
+    term_life: 'Term Life',
+    health: 'Health',
+    super_topup: 'Super Top-up',
+    critical_illness: 'Critical Illness',
+    personal_accident: 'Personal Accident',
+    motor: 'Motor',
+    home: 'Home',
+    travel: 'Travel',
+    ulip: 'ULIP / Endowment',
+    other: 'Other',
+  };
+
+  /** Load insurance policies from localStorage */
+  function loadInsuranceFromStorage() {
+    try {
+      const saved = localStorage.getItem(INSURANCE_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) { state.insurance = parsed; return; }
+      }
+    } catch (e) { console.warn('Insurance load failed:', e); }
+    state.insurance = [];
+  }
+
+  /** Save insurance policies to localStorage */
+  function saveInsuranceToStorage() {
+    try {
+      localStorage.setItem(INSURANCE_STORAGE_KEY, JSON.stringify(state.insurance));
+    } catch (e) { console.warn('Insurance save failed:', e); }
+  }
+
+  /** Calculate days until a date */
+  function daysUntil(dateStr) {
+    if (!dateStr) return null;
+    const target = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.ceil((target - today) / (1000 * 60 * 60 * 24));
+  }
+
+  /** Render insurance summary metrics */
+  function renderInsuranceMetrics() {
+    const policies = state.insurance || [];
+    
+    let lifeCover = 0;
+    let healthCover = 0;
+    let totalPremium = 0;
+    
+    policies.forEach(p => {
+      const cover = parseNum(p.sumAssured);
+      const prem = parseNum(p.annualPremium);
+      
+      let annualPrem = prem;
+      if (p.premiumFreq === 'half_yearly') annualPrem = prem * 2;
+      else if (p.premiumFreq === 'quarterly') annualPrem = prem * 4;
+      else if (p.premiumFreq === 'monthly') annualPrem = prem * 12;
+      totalPremium += annualPrem;
+
+      if (p.type === 'term_life') lifeCover += cover;
+      if (['health', 'super_topup', 'critical_illness'].includes(p.type)) healthCover += cover;
+    });
+
+    const elLife = $('#insLifeCover');
+    const elHealth = $('#insHealthCover');
+    const elPrem = $('#insAnnualPremium');
+    const elCount = $('#insPolicyCount');
+
+    if (elLife) elLife.textContent = policies.length ? fmtINR(lifeCover) : '—';
+    if (elHealth) elHealth.textContent = policies.length ? fmtINR(healthCover) : '—';
+    if (elPrem) elPrem.textContent = policies.length ? fmtINR(totalPremium) : '—';
+    if (elCount) elCount.textContent = policies.length;
+  }
+
+  /** Render renewal alerts */
+  function renderInsuranceAlerts() {
+    const container = $('#insuranceAlerts');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const policies = state.insurance || [];
+    const upcoming = policies.filter(p => {
+      const days = daysUntil(p.endDate);
+      return days !== null && days >= 0 && days <= 60;
+    }).sort((a, b) => daysUntil(a.endDate) - daysUntil(b.endDate));
+
+    if (upcoming.length > 0) {
+      upcoming.forEach(p => {
+        const days = daysUntil(p.endDate);
+        const urgency = days <= 15 ? 'alert-warn' : 'alert-info';
+        const icon = days <= 15 ? 'ti-alert-triangle' : 'ti-clock';
+        container.innerHTML += `
+          <div class="alert ${urgency}" style="margin-bottom:10px">
+            <i class="ti ${icon}"></i>
+            <div class="alert-text">
+              <strong>${p.name} — renewal in ${days} day${days !== 1 ? 's' : ''}</strong>
+              <span>Premium: ${fmtINR(parseNum(p.annualPremium))} · Expires: ${new Date(p.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            </div>
+          </div>`;
+      });
+    }
+
+    const lifeCover = policies.filter(p => p.type === 'term_life').reduce((s, p) => s + parseNum(p.sumAssured), 0);
+    if (policies.length > 0 && lifeCover === 0) {
+      container.innerHTML += `
+        <div class="alert alert-warn" style="margin-bottom:10px">
+          <i class="ti ti-alert-triangle"></i>
+          <div class="alert-text"><strong>No term life insurance found</strong><span>Consider adding a term plan with 10-15× annual income coverage.</span></div>
+        </div>`;
+    }
+  }
+
+  /** Render insurance policy cards */
+  function renderInsuranceCards() {
+    const container = $('#insuranceCards');
+    if (!container) return;
+
+    const policies = state.insurance || [];
+    if (policies.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text3)">
+          <i class="ti ti-shield-off" style="font-size:40px;display:block;margin-bottom:12px;opacity:0.4"></i>
+          <div style="font-size:14px;margin-bottom:6px">No insurance policies added yet</div>
+          <div style="font-size:12px">Click <strong>Add Policy</strong> to track your life, health & general insurance.</div>
+        </div>`;
+      return;
+    }
+
+    container.innerHTML = policies.map(p => {
+      const days = daysUntil(p.endDate);
+      const renewalWarn = (days !== null && days >= 0 && days <= 60)
+        ? `<div class="ins-renewal-warn"><i class="ti ti-clock"></i>Renews in ${days} day${days !== 1 ? 's' : ''}</div>`
+        : '';
+      const expired = (days !== null && days < 0)
+        ? `<div class="ins-renewal-warn" style="color:var(--red)"><i class="ti ti-alert-circle"></i>Expired ${Math.abs(days)} days ago</div>`
+        : '';
+
+      const startStr = p.startDate ? new Date(p.startDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—';
+      const endStr = p.endDate ? new Date(p.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+      const freqLabel = { annual: 'Annual', half_yearly: 'Half-Yearly', quarterly: 'Quarterly', monthly: 'Monthly' }[p.premiumFreq] || 'Annual';
+
+      return `
+        <div class="ins-card" data-ins-id="${p.id}">
+          <div class="ins-card-actions">
+            <button data-ins-edit="${p.id}" title="Edit"><i class="ti ti-pencil"></i></button>
+            <button data-ins-delete="${p.id}" title="Delete"><i class="ti ti-trash"></i></button>
+          </div>
+          <div class="ins-card-header">
+            <span class="ins-card-type ins-type-${p.type}">${INSURANCE_TYPE_LABELS[p.type] || p.type}</span>
+          </div>
+          <div class="ins-card-name">${p.name}</div>
+          <div class="ins-card-cover">${fmtINR(parseNum(p.sumAssured))}</div>
+          <div class="ins-card-details">
+            <div><div class="ins-card-detail-label">Premium</div><div class="ins-card-detail-value">${fmtINR(parseNum(p.annualPremium))} · ${freqLabel}</div></div>
+            <div><div class="ins-card-detail-label">Policy #</div><div class="ins-card-detail-value">${p.policyNumber || '—'}</div></div>
+            <div><div class="ins-card-detail-label">Start</div><div class="ins-card-detail-value">${startStr}</div></div>
+            <div><div class="ins-card-detail-label">Renewal</div><div class="ins-card-detail-value">${endStr}</div></div>
+            <div><div class="ins-card-detail-label">Cover Till</div><div class="ins-card-detail-value">${p.coverTill ? new Date(p.coverTill).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '—'}</div></div>
+            <div><div class="ins-card-detail-label">Nominee</div><div class="ins-card-detail-value">${p.nominee || '—'}</div></div>
+          </div>
+          ${p.coveredMembers ? `<div class="ins-card-members" style="margin-top:10px"><i class="ti ti-users"></i>${p.coveredMembers}</div>` : ''}
+          ${p.notes ? `<div style="font-size:11px;color:var(--text3);margin-top:6px;font-style:italic">${p.notes}</div>` : ''}
+          ${renewalWarn}${expired}
+        </div>`;
+    }).join('');
+  }
+
+  /** Open insurance modal for add/edit */
+  function openInsuranceModal(policyId) {
+    const modal = $('#insuranceModal');
+    const title = $('#insuranceModalTitle');
+    const form = $('#insuranceForm');
+    if (!modal || !form) return;
+
+    form.reset();
+    state._editInsuranceId = null;
+
+    if (policyId) {
+      const p = (state.insurance || []).find(x => x.id === policyId);
+      if (p) {
+        state._editInsuranceId = policyId;
+        title.textContent = 'Edit Insurance Policy';
+        $('#insPolicyType').value = p.type;
+        $('#insPolicyName').value = p.name;
+        $('#insSumAssured').value = p.sumAssured;
+        $('#insAnnualPrem').value = p.annualPremium;
+        $('#insStartDate').value = p.startDate || '';
+        $('#insEndDate').value = p.endDate || '';
+        $('#insPolicyNumber').value = p.policyNumber || '';
+        $('#insPremiumFreq').value = p.premiumFreq || 'annual';
+        $('#insCoveredMembers').value = p.coveredMembers || '';
+        $('#insCoverTill').value = p.coverTill || '';
+        $('#insNominee').value = p.nominee || '';
+        $('#insNotes').value = p.notes || '';
+      }
+    } else {
+      title.textContent = 'Add Insurance Policy';
+    }
+
+    modal.classList.add('active');
+  }
+
+  /** Close insurance modal */
+  function closeInsuranceModal() {
+    const modal = $('#insuranceModal');
+    if (modal) modal.classList.remove('active');
+    state._editInsuranceId = null;
+  }
+
+  /** Save insurance form */
+  function saveInsuranceForm() {
+    const type = $('#insPolicyType').value;
+    const name = $('#insPolicyName').value.trim();
+    const sumAssured = $('#insSumAssured').value.trim();
+    const annualPremium = $('#insAnnualPrem').value.trim();
+
+    if (!type || !name || !sumAssured || !annualPremium) {
+      toast('Please fill in all required fields', 'error');
+      return;
+    }
+
+    // Validate numeric fields
+    if (parseNum(sumAssured) <= 0) {
+      toast('Sum Assured must be a positive number', 'error'); return;
+    }
+    if (parseNum(annualPremium) <= 0) {
+      toast('Annual Premium must be a positive number', 'error'); return;
+    }
+
+    const policy = {
+      id: state._editInsuranceId || ('ins_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+      type,
+      name,
+      sumAssured,
+      annualPremium,
+      startDate: $('#insStartDate').value || null,
+      endDate: $('#insEndDate').value || null,
+      policyNumber: $('#insPolicyNumber').value.trim() || null,
+      premiumFreq: $('#insPremiumFreq').value || 'annual',
+      coveredMembers: $('#insCoveredMembers').value.trim() || null,
+      coverTill: $('#insCoverTill').value || null,
+      nominee: $('#insNominee').value.trim() || null,
+      notes: $('#insNotes').value.trim() || null,
+    };
+
+    if (!state.insurance) state.insurance = [];
+
+    if (state._editInsuranceId) {
+      const idx = state.insurance.findIndex(p => p.id === state._editInsuranceId);
+      if (idx >= 0) state.insurance[idx] = policy;
+    } else {
+      state.insurance.push(policy);
+    }
+
+    saveInsuranceToStorage();
+    renderInsuranceMetrics();
+    renderInsuranceAlerts();
+    renderInsuranceCards();
+    closeInsuranceModal();
+    toast(state._editInsuranceId ? 'Policy updated' : 'Policy added', 'success');
+  }
+
+  /** Delete insurance policy */
+  function deleteInsurancePolicy(policyId) {
+    if (!confirm('Delete this insurance policy?')) return;
+    state.insurance = (state.insurance || []).filter(p => p.id !== policyId);
+    saveInsuranceToStorage();
+    renderInsuranceMetrics();
+    renderInsuranceAlerts();
+    renderInsuranceCards();
+    toast('Policy deleted', 'info');
+  }
+
+  /** Initialize insurance module event listeners */
+  function initInsurance() {
+    loadInsuranceFromStorage();
+    renderInsuranceMetrics();
+    renderInsuranceAlerts();
+    renderInsuranceCards();
+
+    const btnAdd = $('#btnAddInsurance');
+    if (btnAdd) btnAdd.addEventListener('click', () => openInsuranceModal(null));
+
+    const btnClose = $('#insuranceModalClose');
+    const btnCancel = $('#insuranceModalCancel');
+    if (btnClose) btnClose.addEventListener('click', closeInsuranceModal);
+    if (btnCancel) btnCancel.addEventListener('click', closeInsuranceModal);
+
+    const form = $('#insuranceForm');
+    if (form) {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        saveInsuranceForm();
+      });
+    }
+
+    const cardsContainer = $('#insuranceCards');
+    if (cardsContainer) {
+      cardsContainer.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('[data-ins-edit]');
+        if (editBtn) { openInsuranceModal(editBtn.dataset.insEdit); return; }
+        const delBtn = e.target.closest('[data-ins-delete]');
+        if (delBtn) { deleteInsurancePolicy(delBtn.dataset.insDelete); return; }
+      });
+    }
+
+    const modal = $('#insuranceModal');
+    if (modal) {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeInsuranceModal();
+      });
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────
   // ─── INIT ───────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────────
 
@@ -2153,6 +2615,7 @@
     renderHoldings();
     renderGoals();
     initGoals();
+    initInsurance();
 
     // ── Navigation (event delegation) ──
     document.addEventListener('click', (e) => {
@@ -2265,11 +2728,27 @@
     if (btnImport) btnImport.addEventListener('click', () => showSection('import'));
 
     // ── Projection inputs (debounced) ──
-    const projInputs = ['cagrProj', 'stepupProj', 'retireProj', 'inflProj'];
+    const projInputs = ['cagrProj', 'stepupProj', 'retireProj', 'inflProj', 'projMonthlySIP', 'projEquityPct', 'projDebtPct'];
     const debouncedProj = debounce(renderProjection, 200);
     projInputs.forEach(id => {
       const input = $(`#${id}`);
-      if (input) input.addEventListener('input', debouncedProj);
+      if (input) {
+        input.addEventListener('input', (e) => {
+          // Mark snapshot fields as user-edited so renderProjection won't overwrite them
+          if (['projMonthlySIP', 'projEquityPct', 'projDebtPct'].includes(id)) {
+            e.target._userEdited = true;
+          }
+          // Sync equity + debt = 100%
+          if (id === 'projEquityPct') {
+            const dtInput = $('#projDebtPct');
+            if (dtInput) { dtInput.value = 100 - (parseFloat(e.target.value) || 0); dtInput._userEdited = true; }
+          } else if (id === 'projDebtPct') {
+            const eqInput = $('#projEquityPct');
+            if (eqInput) { eqInput.value = 100 - (parseFloat(e.target.value) || 0); eqInput._userEdited = true; }
+          }
+          debouncedProj();
+        });
+      }
     });
 
     // ── Holdings search ──

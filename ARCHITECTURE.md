@@ -50,6 +50,7 @@ All application state lives in a single `state` object:
 const state = {
   holdings: [],       // Array of holding objects
   goals: [],          // Array of goal objects
+  insurance: [],      // Array of insurance policy objects
   goalFundMap: {},    // { goalId: [{ holdingIdx, name, category, holdingValue, allocatedValue, pct }] }
   currentScenario: 'bull',  // 'bull' | 'base' | 'bear'
   importStep: 1,      // 1-4 wizard step
@@ -83,6 +84,25 @@ const state = {
   priority: 'medium',             // 'high' | 'medium' | 'low'
   color: '#4f9cf9',
   category: 'Retirement',         // Retirement | Education | Lifestyle | Safety Net | Investment | Other
+}
+```
+
+### Insurance Policy Object
+```js
+{
+  id: 'ins_1716700000_a3f2',       // Unique ID (timestamp + random)
+  type: 'term_life',               // term_life | health | super_topup | critical_illness | personal_accident | motor | home | travel | ulip | other
+  name: 'HDFC Click 2 Protect',   // Policy name / insurer
+  sumAssured: '10000000',          // Cover amount (stored as string, parsed via parseNum)
+  annualPremium: '15000',          // Premium amount (string)
+  premiumFreq: 'annual',           // annual | half_yearly | quarterly | monthly
+  startDate: '2022-05-15',        // ISO date string or null
+  endDate: '2023-05-15',          // Renewal date or null
+  coverTill: '2060-05-15',        // Policy maturity date or null
+  policyNumber: 'POL123456',      // Optional
+  nominee: 'Spouse - Priya',      // Optional
+  coveredMembers: 'Self, Spouse', // Optional
+  notes: 'Rider: CI + AD',        // Optional
 }
 ```
 
@@ -224,6 +244,27 @@ const state = {
 |----------|---------|
 | `init()` | Bootstrap: load data, render, attach events |
 | `initGoals()` | Attach all goal/allocation event listeners |
+| `initInsurance()` | Load insurance from storage, render, attach event listeners |
+
+### INSURANCE TRACKER MODULE
+| Function | Purpose |
+|----------|---------|
+| `loadInsuranceFromStorage()` | Load policies from `wealthos_insurance` localStorage key |
+| `saveInsuranceToStorage()` | Persist `state.insurance` to localStorage |
+| `daysUntil(dateStr)` | Calculate days until a date (for renewal alerts) |
+| `renderInsuranceMetrics()` | Update summary cards: Life Cover, Health Cover, Premium, Count |
+| `renderInsuranceAlerts()` | Show renewal warnings (60-day window) and coverage gaps |
+| `renderInsuranceCards()` | Render policy cards grid with all details |
+| `openInsuranceModal(policyId)` | Open modal for add (null) or edit (id) |
+| `closeInsuranceModal()` | Close and reset modal state |
+| `saveInsuranceForm()` | Validate and save policy to state |
+| `deleteInsurancePolicy(policyId)` | Delete with confirmation |
+| `initInsurance()` | Wire up all insurance event listeners |
+
+### EXPORT
+| Function | Purpose |
+|----------|---------|
+| `exportToCSV()` | Multi-sheet Excel export (Holdings, Goals, Insurance, Goal Allocation) using SheetJS |
 
 ## Event Flow
 
@@ -234,6 +275,7 @@ Page Load
     → renderHoldings()
     → renderGoals()
     → initGoals() (attaches all event listeners)
+    → initInsurance() (load policies, render, attach listeners)
     → renderAllocDonut() + renderGrowthChart()
     → updateDashboardMetrics() → renderDashboardGoalProgress()
     → showSection('dashboard')
@@ -285,6 +327,7 @@ All styles are in `<style>` within the HTML file. Key conventions:
 | `.goal-tile` | Allocation/rebalancing goal tile |
 | `.goal-tile-fund-row` | Row in fund/asset list |
 | `.modal-overlay` | Full-screen modal backdrop |
+| `.ins-card` | Insurance policy card |
 | `.btn` / `.btn-accent` | Button styles |
 | `.alert-*` | Alert banners (warn/info/success) |
 
@@ -306,4 +349,7 @@ All styles are in `<style>` within the HTML file. Key conventions:
 - [ ] Multi-device sync via cloud storage
 - [ ] Mutual fund NAV API integration for live updates
 - [ ] Tax harvesting optimizer
-- [ ] Insurance gap analysis
+- [x] Insurance tracker (added v1.1.0)
+- [ ] Insurance gap analysis (cover vs income ratio)
+- [ ] Premium payment reminders (push notifications)
+- [ ] Policy document upload/attachment

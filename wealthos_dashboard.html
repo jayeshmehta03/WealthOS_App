@@ -258,6 +258,34 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
 .rebal-drift-bar{width:60px;height:4px;background:var(--bg4);border-radius:2px;position:relative}
 .rebal-drift-fill{height:100%;border-radius:2px;position:absolute;top:0}
 
+/* INSURANCE CARDS */
+.ins-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-xl);padding:18px;position:relative;transition:border-color 0.15s}
+.ins-card:hover{border-color:var(--border2)}
+.ins-card-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px}
+.ins-card-type{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;padding:2px 8px;border-radius:4px;font-weight:500}
+.ins-type-term_life{background:var(--blue-bg);color:var(--blue)}
+.ins-type-health{background:var(--teal-bg);color:var(--teal)}
+.ins-type-super_topup{background:var(--teal-bg);color:var(--teal)}
+.ins-type-critical_illness{background:var(--purple-bg);color:var(--purple)}
+.ins-type-personal_accident{background:var(--amber-bg);color:var(--amber)}
+.ins-type-motor{background:var(--amber-bg);color:var(--amber)}
+.ins-type-home{background:var(--blue-bg);color:var(--blue)}
+.ins-type-travel{background:var(--purple-bg);color:var(--purple)}
+.ins-type-ulip{background:var(--red-bg);color:var(--red)}
+.ins-type-other{background:var(--bg4);color:var(--text2)}
+.ins-card-name{font-size:14px;font-weight:600;color:var(--text);margin-bottom:2px}
+.ins-card-cover{font-family:var(--font-mono);font-size:18px;font-weight:500;color:var(--text);margin-bottom:10px}
+.ins-card-details{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px 14px;font-size:12px;margin-bottom:10px}
+.ins-card-detail-label{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:0.06em}
+.ins-card-detail-value{font-family:var(--font-mono);font-size:12px;color:var(--text2)}
+.ins-card-members{font-size:11px;color:var(--text3);padding-top:8px;border-top:1px solid var(--border)}
+.ins-card-members i{font-size:12px;margin-right:4px}
+.ins-card-actions{display:flex;gap:4px;position:absolute;top:14px;right:14px}
+.ins-card-actions button{background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;border-radius:var(--radius);font-size:14px;transition:all 0.12s}
+.ins-card-actions button:hover{background:var(--bg4);color:var(--text)}
+.ins-renewal-warn{display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--amber);font-weight:500;margin-top:6px}
+.ins-renewal-warn i{font-size:11px}
+
 /* MINI SPARKLINE */
 .sparkline-wrap{position:relative;height:40px}
 
@@ -379,6 +407,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
       <button class="nav-item" data-section="projection"><i class="ti ti-rocket"></i>Projection</button>
       <button class="nav-item" data-section="rebalancing"><i class="ti ti-refresh-alert" style="color:var(--amber)"></i>Rebalancing<span class="badge">!</span></button>
       <button class="nav-item" data-section="fire"><i class="ti ti-flame"></i>FIRE Tracker</button>
+      <button class="nav-item" data-section="insurance"><i class="ti ti-shield-check"></i>Insurance</button>
     </div>
 
     <div class="nav-section">
@@ -626,6 +655,35 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
           <i class="ti ti-info-circle"></i>
           <div class="alert-text"><strong>All projections are inflation-adjusted</strong><span>Using 6% annual inflation. Numbers shown are in today's purchasing power.</span></div>
         </div>
+        <!-- Current Portfolio Snapshot -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+          <div class="metric-card">
+            <div class="metric-label">Current Corpus</div>
+            <div class="metric-value" id="projCurrentCorpus">—</div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Total portfolio value</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Monthly SIP</div>
+            <div style="margin-top:4px">
+              <input type="number" id="projMonthlySIP" min="0" step="1000" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:16px;font-weight:500;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+            </div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Editable for what-if</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Equity %</div>
+            <div style="margin-top:4px">
+              <input type="number" id="projEquityPct" min="0" max="100" step="5" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:16px;font-weight:500;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+            </div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Current equity allocation</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Debt %</div>
+            <div style="margin-top:4px">
+              <input type="number" id="projDebtPct" min="0" max="100" step="5" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:16px;font-weight:500;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+            </div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Current debt allocation</div>
+          </div>
+        </div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-header"><div class="card-title">Projection Settings</div></div>
           <div class="card-body">
@@ -636,15 +694,15 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
               </div>
               <div>
                 <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Annual Step-up %</div>
-                <input type="number" value="10" min="0" max="20" id="stepupProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+                <input type="number" value="10" min="0" max="30" step="1" id="stepupProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
               </div>
               <div>
                 <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Retire Year</div>
-                <input type="number" value="2043" min="2030" max="2060" id="retireProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+                <input type="number" value="2043" min="2026" max="2070" step="1" id="retireProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
               </div>
               <div>
                 <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.08em">Inflation %</div>
-                <input type="number" value="6" min="3" max="10" id="inflProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
+                <input type="number" value="6" min="3" max="12" step="0.5" id="inflProj" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:6px 10px;font-size:13px;color:var(--text);outline:none;width:100%;font-family:var(--font-mono)">
               </div>
             </div>
           </div>
@@ -831,6 +889,42 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
         </div>
       </div>
 
+      <!-- ══════════════════ INSURANCE ══════════════════ -->
+      <div id="section-insurance" class="section">
+        <div class="section-header">
+          <div class="section-title">Insurance Tracker</div>
+          <button class="btn btn-accent" id="btnAddInsurance"><i class="ti ti-plus"></i>Add Policy</button>
+        </div>
+
+        <!-- Summary Metrics -->
+        <div class="metrics-grid" id="insuranceMetrics">
+          <div class="metric-card">
+            <div class="metric-label">Life Cover</div>
+            <div class="metric-value" id="insLifeCover">—</div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Sum Assured</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Health Cover</div>
+            <div class="metric-value" id="insHealthCover">—</div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Family floater + top-ups</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Annual Premium</div>
+            <div class="metric-value" id="insAnnualPremium">—</div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">All policies combined</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Policies</div>
+            <div class="metric-value" id="insPolicyCount">0</div>
+            <div class="metric-sub" style="font-family:var(--font-mono);color:var(--text3)">Active policies</div>
+          </div>
+        </div>
+
+        <!-- Alerts & Policy Cards rendered by JS -->
+        <div id="insuranceAlerts"></div>
+        <div id="insuranceCards" class="goals-grid"></div>
+      </div>
+
     </div>
   </main>
 </div>
@@ -895,6 +989,95 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text);font-si
     <div class="modal-footer">
       <button type="button" class="btn" id="assetModalCancel">Cancel</button>
       <button type="submit" form="assetForm" class="btn btn-accent" id="assetModalSave"><i class="ti ti-check"></i> Add to Holdings</button>
+    </div>
+  </div>
+</div>
+
+<!-- Insurance Modal -->
+<div class="modal-overlay" id="insuranceModal">
+  <div class="modal-box" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title" id="insuranceModalTitle">Add Insurance Policy</div>
+      <button class="modal-close" id="insuranceModalClose"><i class="ti ti-x"></i></button>
+    </div>
+    <form id="insuranceForm" class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Policy Type</label>
+        <select class="form-input form-select" id="insPolicyType" required>
+          <option value="">Select type...</option>
+          <option value="term_life">Term Life Insurance</option>
+          <option value="health">Health Insurance</option>
+          <option value="super_topup">Super Top-up</option>
+          <option value="critical_illness">Critical Illness</option>
+          <option value="personal_accident">Personal Accident</option>
+          <option value="motor">Motor Insurance</option>
+          <option value="home">Home Insurance</option>
+          <option value="travel">Travel Insurance</option>
+          <option value="ulip">ULIP / Endowment</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Policy Name / Insurer</label>
+        <input type="text" class="form-input" id="insPolicyName" placeholder="e.g. HDFC Click 2 Protect" required>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+        <label class="form-label">Sum Assured / Cover (₹)</label>
+          <input type="text" class="form-input" id="insSumAssured" inputmode="numeric" placeholder="e.g. 1,00,00,000" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Annual Premium (₹)</label>
+          <input type="text" class="form-input" id="insAnnualPrem" inputmode="numeric" placeholder="e.g. 15,000" required>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Policy Start Date</label>
+          <input type="date" class="form-input" id="insStartDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Policy End / Renewal Date</label>
+          <input type="date" class="form-input" id="insEndDate">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Policy Number</label>
+          <input type="text" class="form-input" id="insPolicyNumber" placeholder="Optional">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Premium Frequency</label>
+          <select class="form-input form-select" id="insPremiumFreq">
+            <option value="annual">Annual</option>
+            <option value="half_yearly">Half-Yearly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Covered Members</label>
+        <input type="text" class="form-input" id="insCoveredMembers" placeholder="e.g. Self, Spouse, Children">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Policy Cover Till (Maturity)</label>
+          <input type="date" class="form-input" id="insCoverTill">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nominee</label>
+          <input type="text" class="form-input" id="insNominee" placeholder="e.g. Spouse - Priya Mehta">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <input type="text" class="form-input" id="insNotes" placeholder="Optional remarks (e.g. rider details)">
+      </div>
+    </form>
+    <div class="modal-footer">
+      <button type="button" class="btn" id="insuranceModalCancel">Cancel</button>
+      <button type="submit" form="insuranceForm" class="btn btn-accent" id="insuranceModalSave"><i class="ti ti-check"></i> Save Policy</button>
     </div>
   </div>
 </div>

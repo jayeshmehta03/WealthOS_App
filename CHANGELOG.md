@@ -1,5 +1,63 @@
 # Changelog
 
+## v1.1.0 — 2026-05-26
+
+### New Features
+
+#### Insurance Tracker
+- Full CRUD for insurance policies (add/edit/delete via modal)
+- 10 policy types: Term Life, Health, Super Top-up, Critical Illness, Personal Accident, Motor, Home, Travel, ULIP, Other
+- Policy card display with type badges, cover amounts, premium, frequency, dates
+- Fields: Sum Assured, Annual Premium, Frequency, Policy Number, Start Date, Renewal Date, Cover Till (maturity), Nominee, Covered Members, Notes
+- Summary metrics: Life Cover, Health Cover, Annual Premium total, Policy count
+- Renewal alerts: 60-day warnings (urgent at ≤15 days), expired policy flagging
+- Coverage adequacy check: warns if no term life insurance exists
+- Persisted to `localStorage` key: `wealthos_insurance`
+
+#### Multi-Sheet Excel Export
+- Export now generates `.xlsx` (was single-tab CSV)
+- Sheet 1: Holdings (Fund Name, Category, Value, Invested, Gain, XIRR, SIP, Units, NAV)
+- Sheet 2: Goals (Name, Category, Priority, Target, Current, Progress %, Year, SIP)
+- Sheet 3: Insurance (Name, Type, Sum Assured, Premium, Frequency, Policy #, Dates, Nominee, Members, Notes)
+- Sheet 4: Goal Allocation (Holding → Goal → Allocation %)
+
+#### Enhanced Projection Section
+- Current portfolio snapshot row: Total Corpus (display), Monthly SIP (editable), Equity % (editable), Debt % (editable)
+- Equity + Debt always sums to 100% — editing one auto-updates the other
+- Equity classification: Index funds, Large/Mid/Small/Flexi Cap, International, Hybrid/NPS
+- Debt classification: Debt, PPF, Liquid, FD, Bonds, Gold/SGB, EPF, SSY
+- All projections now use inflation-adjusted (real) values — chart and summary
+- What-if: changing SIP/equity/debt immediately re-runs projection
+
+### Improvements
+
+#### Dashboard Metrics (Fully Dynamic)
+- Total Corpus: clean value only (removed estimated gains and absolute returns)
+- Monthly SIP: shows current SIP + "required for all goals" below
+- Projected Corpus: inflation-adjusted, target = sum of ALL goals (not just retirement)
+- Portfolio XIRR: weighted across all holdings (MF + manual), with "Nifty 50: 12.2% (10Y CAGR)" benchmark
+- Removed "On track! surplus" message — only shows gap when behind target
+
+#### Goal Progress Cards
+- Replaced "₹X gap" with "SIP: ₹X/mo" — shows monthly SIP required to reach goal on time
+- Uses PMT formula with FV of current amount growing at assumed CAGR
+- Shows "✓ On track" if current amount's growth alone reaches the target
+- Shows "✓ Achieved" if fully funded
+
+### Code Quality & Bug Fixes
+- **Fixed**: `showToast()` → `toast()` — 5 broken calls that would throw ReferenceError (insurance module + export)
+- **Fixed**: Cross-reference safety — `state._assumedCAGR` caches CAGR in state so dashboard/goal-progress don't read DOM inputs from unrendered sections
+- **Fixed**: Removed unused variables (monthlyReturn, monthGain, ytdPct, monthsElapsed) from dashboard metrics
+- **Added**: Input field validation controls:
+  - Retire Year: `step=1`, `min=2026`, `max=2070` (no decimals)
+  - Step-up: `step=1`, `max=30`
+  - Inflation: `step=0.5`, `max=12`
+  - Insurance amounts: `inputmode="numeric"`, positive-number validation on save
+  - Year guard in renderProjection (rejects out-of-range values)
+- **Added**: Equity/Debt input sync — editing Equity % auto-updates Debt % to 100−value and vice versa
+
+---
+
 ## v1.0.0 — 2026-05-25
 
 ### Initial Release
